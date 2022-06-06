@@ -2,7 +2,7 @@ DOCKER :=	docker.io/dougrabson
 QUAY :=		quay.io/dougrabson
 HOME :=		registry.home.rabson.org
 
-REPO :=		/usr/obj/projects/freebsd/src/repo/FreeBSD:13:amd64/latest
+REPO :=		/usr/obj/usr/src/repo/FreeBSD:13:amd64/latest
 VER :=		13.1
 
 
