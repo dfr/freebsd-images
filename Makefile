@@ -1,8 +1,8 @@
 DOCKER :=	docker.io/dougrabson
 QUAY :=		quay.io/dougrabson
 
-REPO :=		/usr/obj/usr/src/repo/FreeBSD:13:amd64/latest
-VER :=		13.1
+REPO ?=		/usr/obj/usr/src/repo/FreeBSD:13:amd64/latest
+VER ?=		13.1
 
 
 all:: minimal small pkgbase
