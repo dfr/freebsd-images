@@ -1,10 +1,8 @@
 #! /bin/sh
 
-set -x
+. lib.sh
 
-DOCKER=docker.io/dougrabson
-QUAY=quay.io/dougrabson
-HOME=registry.home.rabson.org/dougrabson
+set -x
 
 REPO=$1; shift
 VER=$1; shift
@@ -30,6 +28,4 @@ sudo pkg --rootdir $m add $REPO/FreeBSD-pkg-bootstrap-$VER.pkg
 sudo buildah unmount $c
 i=$(sudo buildah commit $c)
 sudo buildah rm $c
-for reg in $DOCKER $QUAY $HOME; do
-    sudo buildah tag $i $reg/freebsd-minimal:$VER
-done
+tag_image $i freebsd-minimal
