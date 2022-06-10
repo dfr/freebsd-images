@@ -6,7 +6,7 @@ pkgbase:
 
 ```
 # Prepare the pkgbase package set
-N=<cpu count>
+N=$(sysctl -n hw.ncpu)
 pushd /usr/src
 make -j$N buildworld
 make -j$N buildkernel
