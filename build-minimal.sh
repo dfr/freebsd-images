@@ -23,7 +23,9 @@ sudo pkg --rootdir $m add $REPO/FreeBSD-openssl-$VER.pkg
 sudo pkg --rootdir $m add $REPO/FreeBSD-fetch-$VER.pkg
 sudo pkg --rootdir $m add $REPO/FreeBSD-pkg-bootstrap-$VER.pkg
 
-#sudo buildah run $c env ASSUME_ALWAYS_YES=yes pkg update
+sudo buildah run $c pkg -y bootstrap
+sudo rm $m/usr/local/sbin/pkg-static.pkgsave
+sudo strip $m/usr/local/sbin/pkg-static
 
 sudo buildah unmount $c
 i=$(sudo buildah commit $c)
