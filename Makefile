@@ -1,24 +1,21 @@
 DOCKER :=	docker.io/dougrabson
 QUAY :=		quay.io/dougrabson
 
-REPO ?=		/usr/obj/usr/src/repo/FreeBSD:13:amd64/latest
-VER ?=		13.1
+REPO ?=		release/13.1
+TAG ?=		13.1
 
 
-all:: minimal small pkgbase
+all:: minimal small
 	sudo buildah rmi --prune > /dev/null
 
 push::
 	for reg in $(DOCKER) $(QUAY); do \
-		sudo buildah push $$reg/freebsd-minimal:13.1; \
-		sudo buildah push $$reg/freebsd-small:13.1; \
+		sudo buildah push $$reg/freebsd-minimal:$(TAG); \
+		sudo buildah push $$reg/freebsd-small:$(TAG); \
 	done
 
 minimal::
-	./build-minimal.sh $(REPO) $(VER)
+	./build-minimal.sh $(REPO) $(TAG)
 
 small::
-	./build-small.sh $(REPO) $(VER)
-
-pkgbase::
-	./build-pkgbase.sh $(REPO) $(VER)
+	./build-small.sh $(REPO) $(TAG)
