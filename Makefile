@@ -1,17 +1,14 @@
-DOCKER :=	docker.io/dougrabson
-QUAY :=		quay.io/dougrabson
-
+REGISTRIES ?=	docker.io/dougrabson quay.io/dougrabson
 REPO ?=		release/13.1
 TAG ?=		13.1
-
 
 all:: minimal small
 	sudo buildah rmi --prune > /dev/null
 
 push::
-	for reg in $(DOCKER) $(QUAY); do \
-		sudo buildah push $$reg/freebsd-minimal:$(TAG); \
-		sudo buildah push $$reg/freebsd-small:$(TAG); \
+	for reg in $(REGISTRIES); do \
+		sudo buildah manifest push --all localhost/freebsd-minimal:$(TAG) docker://$$reg/freebsd-minimal:$(TAG); \
+		sudo buildah manifest push --all localhost/freebsd-small:$(TAG) docker://$$reg/freebsd-small:$(TAG); \
 	done
 
 minimal::

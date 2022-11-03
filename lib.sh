@@ -16,13 +16,3 @@ FreeBSD-base: {
 EOF
     echo $d
 }
-
-
-tag_image() {
-    local id=$1
-    local name=$2
-    for reg in $DOCKER $QUAY; do
-	sudo buildah tag $id $reg/$name:${TAG}
-    done
-    sudo buildah tag $id $name:${TAG}
-}
