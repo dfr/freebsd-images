@@ -15,11 +15,19 @@ sudo pkg --rootdir $m --repo-conf-dir ${workdir}/repos install -y \
      FreeBSD-runtime \
      FreeBSD-rc \
      FreeBSD-caroot \
-     FreeBSD-pkg-bootstrap
+     FreeBSD-pkg-bootstrap \
+     FreeBSD-mtree
+
+# run mtree to create directories with the right permissions etc.
+sudo buildah run $c mtree -deU -p / -f /etc/mtree/BSD.root.dist > /dev/null
+sudo buildah run $c mtree -deU -p /usr -f /etc/mtree/BSD.usr.dist > /dev/null
+sudo buildah run $c mtree -deU -p /usr/include -f /etc/mtree/BSD.include.dist > /dev/null
+sudo buildah run $c mtree -deU -p /usr/lib -f /etc/mtree/BSD.debug.dist > /dev/null
 
 # bootstrap before installing the config for FreeBSD-base, otherwise
 # it will attempt to install pkg from FreeBSD-base instead of FreeBSD.
 sudo buildah run $c pkg -y bootstrap
+sudo ls -l $m/usr
 sudo rm $m/usr/local/sbin/pkg-static.pkgsave
 sudo strip $m/usr/local/sbin/pkg-static
 
