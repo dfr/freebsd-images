@@ -4,15 +4,12 @@ FreeBSD Container Images
 Experimental scripts for building FreeBSD container images using
 pkgbase:
 
+Build images for FreeBSD-13.1-RELEASE:
 ```
-# Prepare the pkgbase package set
-N=$(sysctl -n hw.ncpu)
-pushd /usr/src
-make -j$N buildworld
-make -j$N buildkernel
-make -j$N packages
-popd
+make REPO=release/13.1 TAG=13.1
+```
 
-# Build local container images from those packages
-make all
+or FreeBSD-13-STABLE:
+```
+make REPO=stable TAG=13
 ```

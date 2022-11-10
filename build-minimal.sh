@@ -42,6 +42,9 @@ for arch in amd64 aarch64 ; do
     sudo rm $m/usr/local/sbin/pkg-static.pkgsave
     sudo strip $m/usr/local/sbin/pkg-static
 
+    # Cleanup
+    sudo env ABI=${abi} pkg --rootdir $m --repo-conf-dir ${workdir}/repos clean -ayq
+
     # Installing pkgbase repo
     sudo mkdir -p $m/usr/local/etc/pkg/repos
     sudo cp ${workdir}/repos/base.conf $m/usr/local/etc/pkg/repos
@@ -58,5 +61,5 @@ done
 
 set -x
 
-sudo buildah manifest rm freebsd-minimal:${TAG}
-sudo buildah manifest create freebsd-minimal:${TAG} ${images}
+sudo buildah manifest rm localhost/freebsd-minimal:${TAG}
+sudo buildah manifest create localhost/freebsd-minimal:${TAG} ${images}

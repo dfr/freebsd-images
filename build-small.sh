@@ -9,7 +9,7 @@ majorver=$(echo ${TAG} | cut -d. -f1)
 images=
 for arch in amd64 aarch64 ; do
     abi=FreeBSD:${majorver}:${arch}
-    c=$(sudo buildah from --arch=${arch} freebsd-minimal:${TAG})
+    c=$(sudo buildah from --arch=${arch} localhost/freebsd-minimal:${TAG})
     m=$(sudo buildah mount $c)
 
     echo Generating image for ${arch}
@@ -18,6 +18,7 @@ for arch in amd64 aarch64 ; do
     workdir=$(make_workdir)
     sudo env ABI=${abi} pkg --rootdir $m --repo-conf-dir ${workdir}/repos install -yq \
 	 FreeBSD-utilities
+    sudo env ABI=${abi} pkg --rootdir $m --repo-conf-dir ${workdir}/repos clean -ayq
     rm -rf ${workdir}
 
     sudo buildah unmount $c
@@ -26,6 +27,6 @@ for arch in amd64 aarch64 ; do
     images="${images} $i"
 done
 
-sudo buildah manifest rm freebsd-small:${TAG}
-sudo buildah manifest create freebsd-small:${TAG} ${images}
+sudo buildah manifest rm localhost/freebsd-small:${TAG}
+sudo buildah manifest create localhost/freebsd-small:${TAG} ${images}
 
