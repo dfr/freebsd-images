@@ -2,64 +2,45 @@
 
 . lib.sh
 
-REPO=$1; shift
-TAG=$1; shift
+fixup() {
+    local m=$1; shift
+    local c=$1; shift
 
-majorver=$(echo ${TAG} | cut -d. -f1)
-images=
-for arch in amd64 aarch64 ; do
-    abi=FreeBSD:${majorver}:${arch}
-    c=$(sudo buildah from --arch=${arch} scratch)
-    m=$(sudo buildah mount $c)
+    # bootstrap pkg from latest
+    sudo mkdir -p $m/usr/local/etc/pkg/repos
+    t=$(mktemp)
+    cat > $t <<EOF
+FreeBSD: {
+  url: "pkg+http://pkg.FreeBSD.org/\${ABI}/latest",
+}
+EOF
+    sudo mv $t $m/usr/local/etc/pkg/repos/FreeBSD.conf
 
-    echo Generating image for ${arch}
-
-    echo Installing packages
-    workdir=$(make_workdir)
-    sudo env ABI=${abi} pkg --rootdir $m --repo-conf-dir ${workdir}/repos install -yq \
-	 FreeBSD-runtime \
-	 FreeBSD-rc \
-	 FreeBSD-caroot \
-	 FreeBSD-pkg-bootstrap \
-	 FreeBSD-mtree
-
-    echo Creating directory structure
-    # run mtree to create directories with the right permissions etc.
-    sudo mtree -deU -p $m/ -f $m/etc/mtree/BSD.root.dist > /dev/null
-    sudo mtree -deU -p $m/usr -f $m/etc/mtree/BSD.usr.dist > /dev/null
-    sudo mtree -deU -p $m/usr/include -f $m/etc/mtree/BSD.include.dist > /dev/null
-    sudo mtree -deU -p $m/usr/lib -f $m/etc/mtree/BSD.debug.dist > /dev/null
 
     echo Bootstrap package management
     # bootstrap before installing the config for FreeBSD-base, otherwise
     # it will attempt to install pkg from FreeBSD-base instead of FreeBSD.
-    mounts=
-    if [ "${arch}" = "aarch64" ]; then
-	# qemu helper for building aarch64 image on amd64
-	mounts=--mount=type=bind,source=/usr/local/bin/qemu-aarch64-static,destination=/usr/local/bin/qemu-aarch64-static
-    fi
-    sudo buildah run ${mounts} $c pkg -y bootstrap
+    sudo buildah run $c pkg -y bootstrap
     sudo rm $m/usr/local/sbin/pkg-static.pkgsave
     sudo strip $m/usr/local/sbin/pkg-static
 
-    # Cleanup
-    sudo env ABI=${abi} pkg --rootdir $m --repo-conf-dir ${workdir}/repos clean -ayq
-
     # Installing pkgbase repo
-    sudo mkdir -p $m/usr/local/etc/pkg/repos
-    sudo cp ${workdir}/repos/base.conf $m/usr/local/etc/pkg/repos
-    rm -rf ${workdir}
+    t=$(mktemp)
+    cat > $t <<EOF
+# FreeBSD pkgbase repo - assumes pkgbase image mounted as /pkgbase
 
-    sudo fetch --output=$m/usr/share/keys/pkg/trusted/alpha.pkgbase.live.pub \
-	 https://alpha.pkgbase.live/alpha.pkgbase.live.pub
+FreeBSD-base: {
+  url: "file:///pkgbase/\${ABI}/latest",
+  signature_type: "none",
+  enabled: yes
+}
+EOF
+    sudo mv $t $m/usr/local/etc/pkg/repos/pkgbase.conf
 
-    sudo buildah unmount $c
-    i=$(sudo buildah commit --rm $c)
-    sudo buildah tag $i freebsd-minimal:${TAG}-${arch}
-    images="${images} $i"
-done
+}
 
-set -x
-
-sudo buildah manifest rm localhost/freebsd-minimal:${TAG}
-sudo buildah manifest create localhost/freebsd-minimal:${TAG} ${images}
+build_image $1 $2 freebsd-base freebsd-minimal fixup \
+	    FreeBSD-runtime \
+	    FreeBSD-rc \
+	    FreeBSD-pkg-bootstrap \
+	    FreeBSD-mtree

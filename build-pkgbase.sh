@@ -2,14 +2,30 @@
 
 . lib.sh
 
-REPO=$1; shift
-VER=$1; shift
+branch=$1; shift
+tag=$1; shift
+repo=${REPOBASE}/${branch}/repo
 
-c=$(sudo buildah from scratch)
-m=$(sudo buildah mount $c)
-tar -C $REPO/../.. -cf - FreeBSD:13:amd64 | sudo tar -C $m -xf -
+majorver=$(echo ${tag} | cut -d. -f1)
+name=freebsd-pkgbase
+images=
+for arch in amd64 aarch64; do
+    echo Generating ${name} for ${arch}
 
-sudo buildah unmount $c
-i=$(sudo buildah commit $c)
-sudo buildah rm $c
-tag_image $i freebsd-pkgbase
+    abi=FreeBSD:${majorver}:${arch}
+    c=$(sudo buildah from --arch=${arch} scratch)
+    m=$(sudo buildah mount $c)
+    tar -L -C $repo -cf - ${abi}/latest | sudo tar -C $m -xf -
+
+    sudo buildah unmount $c
+    i=$(sudo buildah commit --rm $c)
+    sudo buildah tag $i localhost/${name}:${tag}-${arch}
+    images="${images} $i"
+done
+
+set -x
+
+if sudo buildah manifest exists localhost/${name}:${tag}; then
+    sudo buildah manifest rm localhost/${name}:${tag}
+fi
+sudo buildah manifest create localhost/${name}:${tag} ${images}
