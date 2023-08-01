@@ -2,4 +2,5 @@
 
 . lib.sh
 
-build_mtree $1 $2 freebsd-mtree
+parse_args "$@"
+build_mtree freebsd-mtree

@@ -3,20 +3,24 @@
 . lib.sh
 
 fixup() {
-    # copy /etc/passwd from FreeBSD-runtime
-    d=$(mktemp -d -t freebsd-tmp)
-    sudo env ABI=${abi} pkg --rootdir $d --repo-conf-dir ${workdir}/repos \
-	 install -yq FreeBSD-runtime
-    sudo pwd_mkdb -d $m/etc $d/etc/master.passwd
-    sudo cp $d/etc/group $m/etc
+    local m=$1
+    local c=$2
+    local workdir=$3
 
-    sudo chflags -R 0 $d
-    sudo rm -rf $d
-
-    # maybe remove openssl binary?
+    local desc=$(cat <<EOF
+In addition to the contents of freebsd-static, contains:
+- base system dynamic libraries
+- SSL dynamic libraries
+EOF
+	  )
+    sudo buildah config --label "org.opencontainers.image.title=Base image for dynamically linked workloads" $c || return $?
+    sudo buildah config --label "org.opencontainers.image.description=${desc}" $c || return $?
 }
 
-build_image $1 $2 freebsd-mtree freebsd-base fixup \
-	    FreeBSD-clibs \
-	    FreeBSD-caroot \
-	    FreeBSD-zoneinfo
+parse_args "$@"
+if [ "${has_caroot_data}" = "yes" ]; then
+    packages="FreeBSD-clibs FreeBSD-libssl"
+else
+    packages="FreeBSD-openssl"
+fi
+build_image freebsd-static freebsd-base fixup ${packages}

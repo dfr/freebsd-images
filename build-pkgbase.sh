@@ -2,8 +2,8 @@
 
 . lib.sh
 
-branch=$1; shift
-tag=$1; shift
+parse_args "$@"
+
 repo=${REPOBASE}/${branch}/repo
 
 majorver=$(echo ${tag} | cut -d. -f1)

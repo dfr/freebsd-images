@@ -3,8 +3,9 @@
 . lib.sh
 
 fixup() {
-    local m=$1; shift
-    local c=$1; shift
+    local m=$1
+    local c=$2
+    local workdir=$3
 
     # bootstrap pkg from latest
     sudo mkdir -p $m/usr/local/etc/pkg/repos
@@ -24,23 +25,23 @@ EOF
     sudo rm $m/usr/local/sbin/pkg-static.pkgsave
     sudo strip $m/usr/local/sbin/pkg-static
 
-    # Installing pkgbase repo
-    t=$(mktemp)
-    cat > $t <<EOF
-# FreeBSD pkgbase repo - assumes pkgbase image mounted as /pkgbase
+    # Install repo config for FreeBSD-base
+    install_pkgbase_repo ${workdir} $m || return $?
 
-FreeBSD-base: {
-  url: "file:///pkgbase/\${ABI}/latest",
-  signature_type: "none",
-  enabled: yes
-}
+    local desc=$(cat <<EOF
+In addition to the contents of freebsd-base, contains:
+- base system utities
+- pkg
 EOF
-    sudo mv $t $m/usr/local/etc/pkg/repos/pkgbase.conf
-
+	  )
+    sudo buildah config --label "org.opencontainers.image.title=Minimal image for shell-based workloads" $c || return $?
+    sudo buildah config --label "org.opencontainers.image.description=${desc}" $c || return $?
 }
 
-build_image $1 $2 freebsd-base freebsd-minimal fixup \
+parse_args "$@"
+build_image freebsd-base freebsd-minimal fixup \
 	    FreeBSD-runtime \
+	    FreeBSD-caroot \
 	    FreeBSD-rc \
 	    FreeBSD-pkg-bootstrap \
 	    FreeBSD-mtree

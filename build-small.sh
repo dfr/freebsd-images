@@ -3,7 +3,19 @@
 . lib.sh
 
 fixup() {
+    local m=$1
+    local c=$2
+    local workdir=$3
+
+    local desc=$(cat <<EOF
+In addition to the contents of freebsd-minimal, contains:
+- non-vital programs and libraries
+EOF
+	  )
+    sudo buildah config --label "org.opencontainers.image.title=Small image for shell-based workloads" $c || return $?
+    sudo buildah config --label "org.opencontainers.image.description=${desc}" $c || return $?
 }
 
-build_image $1 $2 freebsd-minimal freebsd-small fixup \
+parse_args "$@"
+build_image freebsd-minimal freebsd-small fixup \
 	    FreeBSD-utilities
