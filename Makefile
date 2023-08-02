@@ -16,25 +16,25 @@ push::
 .endfor
 
 mtree::
-	./build-mtree.sh $(BRANCH) $(TAG)
+	sudo ./build-mtree.sh $(BRANCH) $(TAG)
 
 static:: mtree
-	./build-static.sh $(BRANCH) $(TAG)
+	sudo ./build-static.sh $(BRANCH) $(TAG)
 
 static-debug:: static
-	./build-static-debug.sh $(BRANCH) $(TAG)
+	sudo ./build-static-debug.sh $(BRANCH) $(TAG)
 
 base:: static
-	./build-base.sh $(BRANCH) $(TAG)
+	sudo ./build-base.sh $(BRANCH) $(TAG)
 
 base-debug:: base
-	./build-base-debug.sh $(BRANCH) $(TAG)
+	sudo ./build-base-debug.sh $(BRANCH) $(TAG)
 
 minimal:: base
-	./build-minimal.sh $(BRANCH) $(TAG)
+	sudo ./build-minimal.sh $(BRANCH) $(TAG)
 
 small:: minimal
-	./build-small.sh $(BRANCH) $(TAG)
+	sudo ./build-small.sh $(BRANCH) $(TAG)
 
 pkgbase::
-	./build-pkgbase.sh $(BRANCH) $(TAG)
+	sudo ./build-pkgbase.sh $(BRANCH) $(TAG)

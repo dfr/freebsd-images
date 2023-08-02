@@ -13,8 +13,8 @@ In addition to the contents of freebsd-static, contains:
 - SSL dynamic libraries
 EOF
 	  )
-    sudo buildah config --label "org.opencontainers.image.title=Base image for dynamically linked workloads" $c || return $?
-    sudo buildah config --label "org.opencontainers.image.description=${desc}" $c || return $?
+    buildah config --label "org.opencontainers.image.title=Base image for dynamically linked workloads" $c || return $?
+    buildah config --label "org.opencontainers.image.description=${desc}" $c || return $?
 }
 
 parse_args "$@"

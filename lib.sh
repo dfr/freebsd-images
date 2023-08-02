@@ -88,14 +88,14 @@ EOF
     # Extract FreeBSD-runtime into the workdir to get the version and let
     # builder scripts copy fragments into an image
     mkdir ${workdir}/runtime
-    sudo env ABI=${abi} pkg --rootdir ${workdir}/runtime --repo-conf-dir ${workdir}/repos \
+    env ABI=${abi} pkg --rootdir ${workdir}/runtime --repo-conf-dir ${workdir}/repos \
 	 install -yq FreeBSD-runtime
     
     # Add labels to the container
-    local ver=$(sudo chroot ${workdir}/runtime freebsd-version)
-    sudo buildah config --label "org.opencontainers.image.url=https://www.freebsd.org" $c
-    sudo buildah config --label "org.opencontainers.image.version=${ver}" $c
-    sudo buildah config --label "org.opencontainers.image.licenses=BSD2CLAUSE" $c
+    local ver=$(chroot ${workdir}/runtime freebsd-version)
+    buildah config --label "org.opencontainers.image.url=https://www.freebsd.org" $c
+    buildah config --label "org.opencontainers.image.version=${ver}" $c
+    buildah config --label "org.opencontainers.image.licenses=BSD2CLAUSE" $c
 
     echo ${workdir}
 }
@@ -103,16 +103,16 @@ EOF
 install_pkgbase_repo() {
     local workdir=$1
     local m=$2
-    sudo cp ${workdir}/alpha.pkgbase.live.conf $m/usr/local/etc/pkg/repos/pkgbase.conf
-    sudo mkdir -p $m/usr/local/etc/pkg/keys || return $?
-    sudo fetch --output=$m/usr/local/etc/pkg/keys/alpha.pkgbase.live.pub \
+    cp ${workdir}/alpha.pkgbase.live.conf $m/usr/local/etc/pkg/repos/pkgbase.conf
+    mkdir -p $m/usr/local/etc/pkg/keys || return $?
+    fetch --output=$m/usr/local/etc/pkg/keys/alpha.pkgbase.live.pub \
 	 https://alpha.pkgbase.live/alpha.pkgbase.live.pub || return $?
 }
 
 clean_workdir() {
     local workdir=$1
-    sudo chflags -R 0 ${workdir}
-    sudo rm -rf ${workdir}
+    chflags -R 0 ${workdir}
+    rm -rf ${workdir}
 }
 
 # build an mtree directories only image
@@ -124,9 +124,9 @@ build_mtree() {
     local images=
     for arch in ${ARCHES}; do
 	local abi=FreeBSD:${majorver}:${arch}
-	local c=$(sudo buildah from --arch=${arch} scratch)
+	local c=$(buildah from --arch=${arch} scratch)
 	local workdir=$(make_workdir ${branch} ${abi} $c)
-	local m=$(sudo buildah mount $c)
+	local m=$(buildah mount $c)
 
 	echo Generating freebsd-mtree for ${arch}
 
@@ -134,26 +134,26 @@ build_mtree() {
 	# Install mtree package to a temp directory since it also pulls in
 	# FreeBSD-runtime
 	mkdir ${workdir}/tmp
-	sudo env ABI=${abi} pkg --rootdir ${workdir}/tmp --repo-conf-dir ${workdir}/repos \
+	env ABI=${abi} pkg --rootdir ${workdir}/tmp --repo-conf-dir ${workdir}/repos \
 	     install -yq FreeBSD-mtree || exit $?
-	sudo mtree -deU -p $m/ -f ${workdir}/tmp/etc/mtree/BSD.root.dist > /dev/null
-	sudo mtree -deU -p $m/usr -f ${workdir}/tmp/etc/mtree/BSD.usr.dist > /dev/null
-	sudo mtree -deU -p $m/usr/include -f ${workdir}/tmp/etc/mtree/BSD.include.dist > /dev/null
-	sudo mtree -deU -p $m/usr/lib -f ${workdir}/tmp/etc/mtree/BSD.debug.dist > /dev/null
+	mtree -deU -p $m/ -f ${workdir}/tmp/etc/mtree/BSD.root.dist > /dev/null
+	mtree -deU -p $m/usr -f ${workdir}/tmp/etc/mtree/BSD.usr.dist > /dev/null
+	mtree -deU -p $m/usr/include -f ${workdir}/tmp/etc/mtree/BSD.include.dist > /dev/null
+	mtree -deU -p $m/usr/lib -f ${workdir}/tmp/etc/mtree/BSD.debug.dist > /dev/null
 
 	# Cleanup
-	sudo chflags -R 0 ${workdir}/tmp || exit $?
-	sudo rm -rf ${workdir}/tmp || exit $?
+	chflags -R 0 ${workdir}/tmp || exit $?
+	rm -rf ${workdir}/tmp || exit $?
 
-	sudo buildah unmount $c
-	i=$(sudo buildah commit --rm $c localhost/${name}:${tag}-${arch})
+	buildah unmount $c
+	i=$(buildah commit --rm $c localhost/${name}:${tag}-${arch})
 	images="${images} $i"
 	clean_workdir ${workdir}
     done
-    if sudo buildah manifest exists localhost/${name}:${tag}; then
-	sudo buildah manifest rm localhost/${name}:${tag} || exit $?
+    if buildah manifest exists localhost/${name}:${tag}; then
+	buildah manifest rm localhost/${name}:${tag} || exit $?
     fi
-    sudo buildah manifest create localhost/${name}:${tag} ${images} || exit $?
+    buildah manifest create localhost/${name}:${tag} ${images} || exit $?
 }
 
 # usage: build_image <from image> <image name> <fixup func> packages...
@@ -166,27 +166,27 @@ build_image() {
     local images=
     for arch in ${ARCHES}; do
 	abi=FreeBSD:${majorver}:${arch}
-	c=$(sudo buildah from --arch=${arch} ${from}:${tag}-${arch})
+	c=$(buildah from --arch=${arch} ${from}:${tag}-${arch})
 	local workdir=$(make_workdir ${branch} ${abi} $c)
-	m=$(sudo buildah mount $c)
+	m=$(buildah mount $c)
 
 	echo Generating ${name} for ${arch}
 
 	echo Installing packages
-	sudo env ABI=${abi} pkg --rootdir $m --repo-conf-dir ${workdir}/repos \
+	env ABI=${abi} pkg --rootdir $m --repo-conf-dir ${workdir}/repos \
 	     install -y "$@" || exit $?
 	
 	# Cleanup
 	${fixup} $m $c $workdir || exit $?
-	sudo env ABI=${abi} pkg --rootdir $m --repo-conf-dir ${workdir}/repos clean -ayq || exit $?
+	env ABI=${abi} pkg --rootdir $m --repo-conf-dir ${workdir}/repos clean -ayq || exit $?
 
-	sudo buildah unmount $c || exit $?
-	i=$(sudo buildah commit --rm $c localhost/${name}:${tag}-${arch})
+	buildah unmount $c || exit $?
+	i=$(buildah commit --rm $c localhost/${name}:${tag}-${arch})
 	images="${images} $i"
 	clean_workdir ${workdir}
     done
-    if sudo buildah manifest exists localhost/${name}:${tag}; then
-	sudo buildah manifest rm localhost/${name}:${tag} || exit $?
+    if buildah manifest exists localhost/${name}:${tag}; then
+	buildah manifest rm localhost/${name}:${tag} || exit $?
     fi
-    sudo buildah manifest create localhost/${name}:${tag} ${images} || exit $?
+    buildah manifest create localhost/${name}:${tag} ${images} || exit $?
 }
