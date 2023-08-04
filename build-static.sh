@@ -9,12 +9,15 @@ fixup() {
 
     # copy /etc/passwd from FreeBSD-runtime
     cp ${workdir}/runtime/etc/master.passwd $m/etc || return $?
-    pwd_mkdb -d $m/etc $m/etc/master.passwd || return $?
+    pwd_mkdb -p -d $m/etc $m/etc/master.passwd || return $?
     cp ${workdir}/runtime/etc/group $m/etc || return $?
+    cp ${workdir}/runtime/etc/termcap.small $m/etc/termcap.small || return $?
+    cp ${workdir}/runtime/etc/termcap.small $m/usr/share/misc/termcap || return $?
 
-    if [ "${has_caroot_data}" != "yes" ]; then
-	# copy /usr/share/certs from caroot to avoid pulling in openssl
-	# In FreeBSD-14, we install caroot-data instead
+    if [ "${has_certctl_package}" != "yes" ]; then
+	# Copy /usr/share/certs from caroot to avoid pulling in openssl In
+	# FreeBSD-14, certctl is split out into its own package so we can just
+	# install caroot.
 	mkdir ${workdir}/caroot || return $?
 	env ABI=${abi} pkg --rootdir ${workdir}/caroot --repo-conf-dir ${workdir}/repos \
 	     install -yq FreeBSD-caroot || return $?
@@ -28,17 +31,18 @@ Contains:
 - SSL certificates
 - /etc/passwd
 - /etc/group
+- /etc/termcap
 - timezone data
 EOF
 	  )
-    buildah config --label "org.opencontainers.image.title=Base image for statically linked workloads" $c || return $?
-    buildah config --label "org.opencontainers.image.description=${desc}" $c || return $?
+    buildah config --annotation "org.opencontainers.image.title=Base image for statically linked workloads" $c || return $?
+    buildah config --annotation "org.opencontainers.image.description=${desc}" $c || return $?
 }
 
 parse_args "$@"
-if [ "${has_caroot_data}" = "yes" ]; then
-    packages="FreeBSD-caroot-data FreeBSD-zoneinfo"
+if [ "${has_certctl_package}" = "yes" ]; then
+    packages="FreeBSD-caroot FreeBSD-zoneinfo"
 else
     packages="FreeBSD-zoneinfo"
 fi
-build_image freebsd-mtree freebsd-static fixup ${packages}
+build_image mtree static fixup ${packages}

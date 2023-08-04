@@ -1,40 +1,36 @@
 REGISTRIES ?=	docker.io/dougrabson quay.io/dougrabson
 BRANCH ?=	releng/13.2
-TAG ?=		13.2
+VER ?=		13.2
+ARCHES ?=	amd64 aarch64
 
-IMAGES= static static-debug base base-debug minimal small
+IMAGES =	static static-debug base base-debug minimal small
 
 all:: $(IMAGES)
 
 push::
 .for reg in $(REGISTRIES)
 .for img in $(IMAGES)
-	sudo buildah manifest push --all \
-		localhost/freebsd-${img}:$(TAG) \
-		docker://${reg}/freebsd-${img}:$(TAG)
+	sudo ./push-images.sh freebsd$(VER)-${img} ${reg} # $(ARCHES)
 .endfor
 .endfor
 
 mtree::
-	sudo ./build-mtree.sh $(BRANCH) $(TAG)
+	sudo ./build-mtree.sh -A "$(ARCHES)" $(BRANCH) $(VER)
 
 static:: mtree
-	sudo ./build-static.sh $(BRANCH) $(TAG)
+	sudo ./build-static.sh -A "$(ARCHES)" $(BRANCH) $(VER)
 
 static-debug:: static
-	sudo ./build-static-debug.sh $(BRANCH) $(TAG)
+	sudo ./build-static-debug.sh -A "$(ARCHES)" $(BRANCH) $(VER)
 
 base:: static
-	sudo ./build-base.sh $(BRANCH) $(TAG)
+	sudo ./build-base.sh -A "$(ARCHES)" $(BRANCH) $(VER)
 
 base-debug:: base
-	sudo ./build-base-debug.sh $(BRANCH) $(TAG)
+	sudo ./build-base-debug.sh -A "$(ARCHES)" $(BRANCH) $(VER)
 
 minimal:: base
-	sudo ./build-minimal.sh $(BRANCH) $(TAG)
+	sudo ./build-minimal.sh -A "$(ARCHES)" $(BRANCH) $(VER)
 
 small:: minimal
-	sudo ./build-small.sh $(BRANCH) $(TAG)
-
-pkgbase::
-	sudo ./build-pkgbase.sh $(BRANCH) $(TAG)
+	sudo ./build-small.sh -A "$(ARCHES)" $(BRANCH) $(VER)

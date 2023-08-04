@@ -7,6 +7,9 @@ fixup() {
     local c=$2
     local workdir=$3
 
+    # clear out any pkgsave conflicts from static or base
+    find $m -name '*.pkgsave' | xargs rm
+
     # bootstrap pkg from latest
     mkdir -p $m/usr/local/etc/pkg/repos
     t=$(mktemp)
@@ -16,7 +19,6 @@ FreeBSD: {
 }
 EOF
     mv $t $m/usr/local/etc/pkg/repos/FreeBSD.conf
-
 
     echo Bootstrap package management
     # bootstrap before installing the config for FreeBSD-base, otherwise
@@ -29,19 +31,24 @@ EOF
     install_pkgbase_repo ${workdir} $m || return $?
 
     local desc=$(cat <<EOF
-In addition to the contents of freebsd-base, contains:
-- base system utities
+In addition to the contents of base, adds:
+- core system utilities
 - pkg
 EOF
 	  )
-    buildah config --label "org.opencontainers.image.title=Minimal image for shell-based workloads" $c || return $?
-    buildah config --label "org.opencontainers.image.description=${desc}" $c || return $?
+    buildah config --annotation "org.opencontainers.image.title=Minimal image for shell-based workloads" $c || return $?
+    buildah config --annotation "org.opencontainers.image.description=${desc}" $c || return $?
 }
 
 parse_args "$@"
-build_image freebsd-base freebsd-minimal fixup \
+if [ "${has_certctl_package}" = "yes" ]; then
+    caroot="FreeBSD-certctl"
+else
+    caroot="FreeBSD-caroot"
+fi
+build_image base minimal fixup \
 	    FreeBSD-runtime \
-	    FreeBSD-caroot \
+	    ${caroot} \
 	    FreeBSD-rc \
 	    FreeBSD-pkg-bootstrap \
 	    FreeBSD-mtree
