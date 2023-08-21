@@ -114,7 +114,7 @@ FreeBSD-base: {
   url: "https://alpha.pkgbase.live/$(get_apl_path ${branch})/\${ABI}/latest",
   signature_type: "pubkey",
   pubkey: "/usr/local/etc/pkg/keys/alpha.pkgbase.live.pub"
-  enabled: yes
+  enabled: no
 }
 EOF
     # Extract FreeBSD-runtime into the workdir to get the version and let
@@ -145,8 +145,8 @@ install_pkgbase_repo() {
     local m=$2
     cp ${workdir}/alpha.pkgbase.live.conf $m/usr/local/etc/pkg/repos/pkgbase.conf
     mkdir -p $m/usr/local/etc/pkg/keys || return $?
-    fetch --output=$m/usr/local/etc/pkg/keys/alpha.pkgbase.live.pub \
-	 https://alpha.pkgbase.live/alpha.pkgbase.live.pub || return $?
+#    fetch --output=$m/usr/local/etc/pkg/keys/alpha.pkgbase.live.pub \
+#	https://alpha.pkgbase.live/alpha.pkgbase.live.pub || return $?
 }
 
 clean_workdir() {
@@ -197,6 +197,7 @@ build_mtree() {
 	# Cleanup
 	chflags -R 0 ${workdir}/tmp || exit $?
 	rm -rf ${workdir}/tmp || exit $?
+	rm -f $m/var/db/pkg/*
 
 	buildah unmount $c
 	i=$(buildah commit --timestamp=$(get_build_timestamp ${tag}) --rm $c ${image}:${tag}-${arch})
@@ -234,6 +235,9 @@ build_image() {
 	# Cleanup
 	${fixup} $m $c $workdir || exit $?
 	env ABI=${abi} pkg --rootdir $m --repo-conf-dir ${workdir}/repos clean -ayq || exit $?
+	rm -f $m/var/db/pkg/*
+	# We will get some strays since we nuke pkg metadata in the parent image(s)
+	find $m -name '*.pkgsave' | xargs rm
 
 	buildah unmount $c || exit $?
 	i=$(buildah commit --timestamp=$(get_build_timestamp ${tag}) --rm $c ${image}:${tag}-${arch})
