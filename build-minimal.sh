@@ -7,9 +7,6 @@ fixup() {
     local c=$2
     local workdir=$3
 
-    # clear out any pkgsave conflicts from static or base
-    find $m -name '*.pkgsave' | xargs rm
-
     # bootstrap pkg from latest
     mkdir -p $m/usr/local/etc/pkg/repos
     t=$(mktemp)
@@ -49,6 +46,7 @@ fi
 build_image base minimal fixup \
 	    FreeBSD-runtime \
 	    ${caroot} \
+	    FreeBSD-kerberos-lib \
 	    FreeBSD-rc \
 	    FreeBSD-pkg-bootstrap \
 	    FreeBSD-mtree
