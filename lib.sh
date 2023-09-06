@@ -1,6 +1,7 @@
 REPOBASE=/zboot/iocage/jails/pkgbase/root/usr/obj/build/src
 REPOURL=http://pkgbase.home.rabson.org/packages
 ARCHES="amd64 aarch64"
+PKG=pkg
 
 get_abi() {
     local ver=$1; shift
@@ -10,7 +11,7 @@ get_abi() {
 
 # Parse arguments and set branch, tag, has_caroot_data
 parse_args() {
-    while getopts "B:R:A:" arg; do
+    while getopts "B:R:A:P:" arg; do
 	case ${arg} in
 	    B)
 		REPOBASE="${OPTARG}"
@@ -20,6 +21,9 @@ parse_args() {
 		;;
 	    A)
 		ARCHES="${OPTARG}"
+		;;
+	    P)
+		PKG="${OPTARG}"
 		;;
 	    *)
 		echo "Unknown argument"
@@ -35,7 +39,7 @@ parse_args() {
     set -- $(find ${REPOBASE}/${branch}/repo/$(get_abi ${ver} amd64)/latest/ -name 'FreeBSD-certctl*')
     if [ $# -gt 0 ]; then
 	has_certctl_package=yes
-    else 
+    else
 	has_certctl_package=no
     fi
 }
@@ -64,7 +68,7 @@ get_apl_path() {
 # Get build version from runtime package metadata
 get_build_version() {
     local workdir=$1
-    env ABI=${abi} pkg --rootdir ${workdir}/runtime --repo-conf-dir ${workdir}/repos \
+    env ABI=${abi} ${PKG} --rootdir ${workdir}/runtime --repo-conf-dir ${workdir}/repos \
 	info --raw --raw-format json FreeBSD-runtime | jq --raw-output .version
 }
 
@@ -120,7 +124,7 @@ EOF
     # Extract FreeBSD-runtime into the workdir to get the version and let
     # builder scripts copy fragments into an image
     mkdir ${workdir}/runtime
-    env ABI=${abi} pkg --rootdir ${workdir}/runtime --repo-conf-dir ${workdir}/repos \
+    env ABI=${abi} ${PKG} --rootdir ${workdir}/runtime --repo-conf-dir ${workdir}/repos \
 	 install -yq FreeBSD-runtime || exit $?
 
     echo ${workdir}
@@ -181,12 +185,13 @@ build_mtree() {
 	local m=$(buildah mount $c)
 
 	echo Generating ${name} for ${arch}
+	local timestamp=$(get_build_timestamp ${tag})
 
 	echo Creating directory structure
 	# Install mtree package to a temp directory since it also pulls in
 	# FreeBSD-runtime
 	mkdir ${workdir}/tmp
-	env ABI=${abi} pkg --rootdir ${workdir}/tmp --repo-conf-dir ${workdir}/repos \
+	env ABI=${abi} ${PKG} --rootdir ${workdir}/tmp --repo-conf-dir ${workdir}/repos \
 	     install -yq FreeBSD-mtree || exit $?
 	mtree -deU -p $m/ -f ${workdir}/tmp/etc/mtree/BSD.root.dist > /dev/null
 	mtree -deU -p $m/var -f ${workdir}/tmp/etc/mtree/BSD.var.dist > /dev/null
@@ -197,10 +202,9 @@ build_mtree() {
 	# Cleanup
 	chflags -R 0 ${workdir}/tmp || exit $?
 	rm -rf ${workdir}/tmp || exit $?
-	rm -f $m/var/db/pkg/*
 
 	buildah unmount $c
-	i=$(buildah commit --timestamp=$(get_build_timestamp ${tag}) --rm $c ${image}:${tag}-${arch})
+	i=$(buildah commit --timestamp=${timestamp} --rm $c ${image}:${tag}-${arch})
 	images="${images} $i"
 	clean_workdir ${workdir}
     done
@@ -227,20 +231,27 @@ build_image() {
 	m=$(buildah mount $c)
 
 	echo Generating ${name} for ${arch}
+	local timestamp=$(get_build_timestamp ${tag})
 
 	echo Installing packages
-	env ABI=${abi} pkg --rootdir $m --repo-conf-dir ${workdir}/repos \
+	env ABI=${abi} SOURCE_DATE_EPOCH=${timestamp} ${PKG} --rootdir $m --repo-conf-dir ${workdir}/repos \
 	     install -y "$@" || exit $?
-	
+
 	# Cleanup
 	${fixup} $m $c $workdir || exit $?
-	env ABI=${abi} pkg --rootdir $m --repo-conf-dir ${workdir}/repos clean -ayq || exit $?
-	rm -f $m/var/db/pkg/*
-	# We will get some strays since we nuke pkg metadata in the parent image(s)
+	env ABI=${abi} ${PKG} --rootdir $m --repo-conf-dir ${workdir}/repos clean -ayq || exit $?
+	#rm -f $m/var/db/pkg/*
+	# We will get some strays since we may have cherry-picked files from
+	# runtime in the parent image(s)
 	find $m -name '*.pkgsave' | xargs rm
 
+	# Normalise local.sqlite by dumping and restoring
+	#sqlite3 $m/var/db/pkg/local.sqlite ".dump" > ${workdir}/local.sql
+	rm -f $m/var/db/pkg/local.sqlite
+	#sqlite3 $m/var/db/pkg/local.sqlite ".read ${workdir}/local.sql"
+
 	buildah unmount $c || exit $?
-	i=$(buildah commit --timestamp=$(get_build_timestamp ${tag}) --rm $c ${image}:${tag}-${arch})
+	i=$(buildah commit --timestamp=${timestamp} --rm $c ${image}:${tag}-${arch})
 	buildah tag ${image}:${tag}-${arch} ${image}:latest-${arch}
 	images="${images} $i"
 	clean_workdir ${workdir}
