@@ -47,6 +47,7 @@ build_image base minimal fixup \
 	    FreeBSD-runtime \
 	    ${caroot} \
 	    FreeBSD-kerberos-lib \
+	    FreeBSD-libexecinfo \
 	    FreeBSD-rc \
 	    FreeBSD-pkg-bootstrap \
 	    FreeBSD-mtree
