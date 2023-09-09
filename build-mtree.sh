@@ -3,4 +3,6 @@
 . lib.sh
 
 parse_args "$@"
-build_mtree mtree
+if [ ${BUILD} = yes ]; then
+    build_mtree mtree
+fi

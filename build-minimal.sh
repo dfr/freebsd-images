@@ -33,8 +33,8 @@ In addition to the contents of base, adds:
 - pkg
 EOF
 	  )
-    buildah config --annotation "org.opencontainers.image.title=Minimal image for shell-based workloads" $c || return $?
-    buildah config --annotation "org.opencontainers.image.description=${desc}" $c || return $?
+    add_annotation $c "org.opencontainers.image.title=Minimal image for shell-based workloads"
+    add_annotation $c "org.opencontainers.image.description=${desc}"
 }
 
 parse_args "$@"
@@ -43,11 +43,17 @@ if [ "${has_certctl_package}" = "yes" ]; then
 else
     caroot="FreeBSD-caroot"
 fi
-build_image base minimal fixup \
-	    FreeBSD-runtime \
-	    ${caroot} \
-	    FreeBSD-kerberos-lib \
-	    FreeBSD-libexecinfo \
-	    FreeBSD-rc \
-	    FreeBSD-pkg-bootstrap \
-	    FreeBSD-mtree
+
+if [ ${BUILD} = yes ]; then
+    build_image base minimal "" fixup \
+		FreeBSD-runtime \
+		${caroot} \
+		FreeBSD-kerberos-lib \
+		FreeBSD-libexecinfo \
+		FreeBSD-rc \
+		FreeBSD-pkg-bootstrap \
+		FreeBSD-mtree
+fi
+if [ ${PUSH} = yes ]; then
+    push_image minimal
+fi

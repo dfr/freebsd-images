@@ -35,8 +35,8 @@ Contains:
 - timezone data
 EOF
 	  )
-    buildah config --annotation "org.opencontainers.image.title=Base image for statically linked workloads" $c || return $?
-    buildah config --annotation "org.opencontainers.image.description=${desc}" $c || return $?
+    add_annotation $c "org.opencontainers.image.title=Base image for statically linked workloads"
+    add_annotation $c "org.opencontainers.image.description=${desc}"
 }
 
 parse_args "$@"
@@ -45,4 +45,11 @@ if [ "${has_certctl_package}" = "yes" ]; then
 else
     packages="FreeBSD-zoneinfo"
 fi
-build_image mtree static fixup ${packages}
+
+if [ ${BUILD} = yes ]; then
+    build_image mtree static "" fixup ${packages}
+    build_image static static "-debug" fixup FreeBSD-rescue
+fi
+if [ ${PUSH} = yes ]; then
+    push_image static
+fi

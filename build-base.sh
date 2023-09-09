@@ -17,8 +17,8 @@ In addition to the contents of static, contains:
 - SSL dynamic libraries
 EOF
 	  )
-    buildah config --annotation "org.opencontainers.image.title=Base image for dynamically linked workloads" $c || return $?
-    buildah config --annotation "org.opencontainers.image.description=${desc}" $c || return $?
+    add_annotation $c "org.opencontainers.image.title=Base image for dynamically linked workloads"
+    add_annotation $c "org.opencontainers.image.description=${desc}"
 }
 
 parse_args "$@"
@@ -27,4 +27,11 @@ if [ "${has_certctl_package}" = "yes" ]; then
 else
     packages="FreeBSD-openssl"
 fi
-build_image static base fixup ${packages}
+
+if [ ${BUILD} = yes ]; then
+    build_image static base "" fixup ${packages}
+    build_image base base "-debug" fixup FreeBSD-rescue
+fi
+if [ ${PUSH} = yes ]; then
+    push_image base
+fi

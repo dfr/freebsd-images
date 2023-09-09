@@ -12,10 +12,16 @@ In addition to the contents of small, adds:
 - pf
 EOF
 	  )
-    buildah config --annotation "org.opencontainers.image.title=Image for shell-based workloads with pf" $c || return $?
-    buildah config --annotation "org.opencontainers.image.description=${desc}" $c || return $?
+    add_annotation $c "org.opencontainers.image.title=Image for shell-based workloads with pf"
+    add_annotation $c "org.opencontainers.image.description=${desc}"
 }
 
 parse_args "$@"
-build_image small pf fixup \
-	    FreeBSD-pf
+
+if [ ${BUILD} = yes ]; then
+    build_image small pf "" fixup \
+		FreeBSD-pf
+fi
+if [ ${PUSH} = yes ]; then
+    push_image pf
+fi

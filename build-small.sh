@@ -12,10 +12,16 @@ In addition to the contents of minimal, contains:
 - non-vital utilities and libraries
 EOF
 	  )
-    buildah config --annotation "org.opencontainers.image.title=Small image for shell-based workloads" $c || return $?
-    buildah config --annotation "org.opencontainers.image.description=${desc}" $c || return $?
+    add_annotation $c "org.opencontainers.image.title=Small image for shell-based workloads"
+    add_annotation $c "org.opencontainers.image.description=${desc}"
 }
 
 parse_args "$@"
-build_image minimal small fixup \
-	    FreeBSD-utilities
+
+if [ ${BUILD} = yes ]; then
+    build_image minimal small "" fixup \
+		FreeBSD-utilities
+fi
+if [ ${PUSH} = yes ]; then
+    push_image small
+fi
