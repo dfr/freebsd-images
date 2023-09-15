@@ -6,11 +6,18 @@ BUILD=no
 PUSH=no
 ADD_ANNOTATIONS=no
 PKG=pkg
+BRANCH=
+VER=
+
+get_majorver() {
+    local ver=$1; shift
+    echo ${ver} | cut -d. -f1
+}
 
 get_abi() {
     local ver=$1; shift
     local arch=$1; shift
-    echo FreeBSD:$(echo ${ver} | cut -d. -f1):${arch}
+    echo FreeBSD:$(get_majorver $ver):${arch}
 }
 
 # Parse arguments and set branch, tag, has_caroot_data
@@ -50,21 +57,20 @@ parse_args() {
 	echo "usage: build-foo.sh [-B <repo dir>] [-R <repo url>] [-A <arches>] <branch> <version>" > /dev/stderr
 	exit 1
     fi
-    branch=$1; shift
-    ver=$1; shift
-    set -- $(find ${REPOBASE}/${branch}/repo/$(get_abi ${ver} amd64)/latest/ -name 'FreeBSD-certctl*')
-    if [ $# -gt 0 ]; then
-	has_certctl_package=yes
-    else
+    BRANCH=$1; shift
+    VER=$1; shift
+    if [ $(get_majorver ${VER}) -lt 14 ]; then
 	has_certctl_package=no
+    else
+	has_certctl_package=yes
     fi
 }
 
 get_apl_path() {
     local branch=$1
-    case ${branch} in
+    case ${BRANCH} in
 	releng/*)
-	    ver=$(echo ${branch} | cut -d/ -f2)
+	    ver=$(echo ${BRANCH} | cut -d/ -f2)
 	    echo "release/${ver}"
 	    ;;
 	stable/*)
@@ -74,7 +80,7 @@ get_apl_path() {
 	    echo "current"
 	    ;;
 	*)
-	    echo "unsupported branch for alpha.pkgbase.live: ${branch}, assuming current" > /dev/stderr
+	    echo "unsupported branch for alpha.pkgbase.live: ${BRANCH}, assuming current" > /dev/stderr
 	    echo "current"
 	    exit 1
 	    ;;
@@ -91,7 +97,7 @@ get_build_version() {
 # Get build date from build version
 get_build_date() {
     local ver=$1; shift
-    case ${ver} in
+    case ${VER} in
 	13.2p1)
 	    echo 202306210000
 	    ;;
@@ -99,10 +105,10 @@ get_build_date() {
 	    echo 202308010000
 	    ;;
 	14.a?.*)
-	    echo ${ver} | sed -E -e 's/14\.a[[:digit:]]\.([[:digit:]]{12}).*/\1/'
+	    echo ${VER} | sed -E -e 's/14\.a[[:digit:]]\.([[:digit:]]{12}).*/\1/'
 	    ;;
 	*.snap*)
-	    echo ${ver} | sed -E -e 's/.*snap([[:digit:]]{12}).*/\1/'
+	    echo ${VER} | sed -E -e 's/.*snap([[:digit:]]{12}).*/\1/'
 	    ;;
 	*)
 	    date +%Y%m%d0000
@@ -130,8 +136,8 @@ make_workdir() {
 # FreeBSD pkgbase repo for building the images
 
 FreeBSD-base: {
-  url: "${REPOURL}/${branch}/\${ABI}/latest",
-  signature_type: "pubkey",
+  url: "${REPOURL}/${BRANCH}/\${ABI}/latest",
+  signature_type: "none",
   pubkey: "/usr/local/etc/ssl/pkgbase.pub",
   enabled: yes
 }
@@ -140,7 +146,7 @@ EOF
 # FreeBSD pkgbase repo
 
 FreeBSD-base: {
-  url: "https://alpha.pkgbase.live/$(get_apl_path ${branch})/\${ABI}/latest",
+  url: "https://alpha.pkgbase.live/$(get_apl_path ${BRANCH})/\${ABI}/latest",
   signature_type: "pubkey",
   pubkey: "/usr/local/etc/pkg/keys/alpha.pkgbase.live.pub"
   enabled: no
@@ -195,9 +201,9 @@ clean_workdir() {
 get_fqin() {
     # I would prefer the multi-level naming scheme but docker hub doesn't
     # support it.
-    # echo localhost/freebsd/${ver}/$1
+    # echo localhost/freebsd/${VER}/$1
 
-    echo localhost/freebsd${ver}-$1
+    echo localhost/freebsd${VER}-$1
 }
 
 # build an mtree directories only image
@@ -211,8 +217,8 @@ build_mtree() {
     local tag=
     local image=$(get_fqin ${name})
     for arch in ${ARCHES}; do
-	local abi=$(get_abi ${ver} ${arch})
-	local workdir=$(make_workdir ${branch} ${abi})
+	local abi=$(get_abi ${VER} ${arch})
+	local workdir=$(make_workdir ${BRANCH} ${abi})
 	tag=$(get_build_version ${workdir})
 	local c=$(create_container ${workdir} --arch=${arch} scratch)
 	local m=$(buildah mount $c)
@@ -257,8 +263,8 @@ build_image() {
     local tag=
     local image=$(get_fqin ${name})
     for arch in ${ARCHES}; do
-	local abi=$(get_abi ${ver} ${arch})
-	local workdir=$(make_workdir ${branch} ${abi})
+	local abi=$(get_abi ${VER} ${arch})
+	local workdir=$(make_workdir ${BRANCH} ${abi})
 	tag=$(get_build_version ${workdir})
 	c=$(create_container ${workdir} $(get_fqin ${from}):latest-${arch})
 	m=$(buildah mount $c)
@@ -297,7 +303,7 @@ build_image() {
 
 push_image() {
     local name=$1; shift
-    local img=freebsd${ver}-${name}
+    local img=freebsd${VER}-${name}
     local tag=$(podman image inspect localhost/${img}:latest \
 	      | jq --raw-output '.[0].Annotations["org.freebsd.version"]')
 
