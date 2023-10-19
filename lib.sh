@@ -1,4 +1,3 @@
-REPOBASE=/zboot/iocage/jails/pkgbase/root/usr/obj/build/src
 REPOURL=http://pkgbase.home.rabson.org/packages
 ARCHES="amd64 aarch64"
 REG=registry.lab.rabson.org
@@ -24,9 +23,6 @@ get_abi() {
 parse_args() {
     while getopts "B:R:A:P:R:abp" arg; do
 	case ${arg} in
-	    B)
-		REPOBASE="${OPTARG}"
-		;;
 	    R)
 		REPOURL="${OPTARG}"
 		;;
