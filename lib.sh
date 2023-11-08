@@ -132,7 +132,7 @@ make_workdir() {
 # FreeBSD pkgbase repo for building the images
 
 FreeBSD-base: {
-  url: "${REPOURL}/${BRANCH}/\${ABI}/latest",
+  url: "${REPOURL}/\${ABI}/latest",
   signature_type: "none",
   pubkey: "/usr/local/etc/ssl/pkgbase.pub",
   enabled: yes
