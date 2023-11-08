@@ -1,10 +1,22 @@
-REPOURL=http://pkgbase.home.rabson.org/packages
+# This is the pkgbase repository URL which is inserted into the image as
+# /usr/local/etc/pkg/repos/FreeBSD.conf
+: ${REPO_IMAGE_URL:=pkg+https://pkg.freebsd.org}
+
+# This is the pkgbase repository URL which is used as source for the packages
+# installed into the image. This is typically the same as the image url (see -R
+# above) but could be different e.g. for testing or debugging purposes.
+: ${REPO_INSTALL_URL:=${REPO_IMAGE_URL}}
+
+# Allow overriding the path to pkg via an environment variable
+: ${PKG:=pkg}
+
+# Default image registry to use for push
+: ${REG:=registry.lab.rabson.org}
+
 ARCHES="amd64 aarch64"
-REG=registry.lab.rabson.org
 BUILD=no
 PUSH=no
 ADD_ANNOTATIONS=no
-PKG=pkg
 BRANCH=
 VER=
 
@@ -21,19 +33,11 @@ get_abi() {
 
 # Parse arguments and set branch, tag, has_caroot_data
 parse_args() {
-    while getopts "B:R:A:P:R:abp" arg; do
+    while getopts "A:abp" arg; do
 	case ${arg} in
-	    R)
-		REPOURL="${OPTARG}"
-		;;
 	    A)
+		# list of arches to build for
 		ARCHES="${OPTARG}"
-		;;
-	    P)
-		PKG="${OPTARG}"
-		;;
-	    R)
-		REG="${OPTARG}"
 		;;
 	    a)
 		ADD_ANNOTATIONS=yes
@@ -50,7 +54,7 @@ parse_args() {
     done
     shift $(( ${OPTIND} - 1 ))
     if [ $# -ne 2 ]; then
-	echo "usage: build-foo.sh [-B <repo dir>] [-R <repo url>] [-A <arches>] <branch> <version>" > /dev/stderr
+	echo "usage: build-foo.sh [-A <arches>] [-a] [-b] [-p] <branch> <version>" > /dev/stderr
 	exit 1
     fi
     BRANCH=$1; shift
@@ -62,24 +66,45 @@ parse_args() {
     fi
 }
 
-get_apl_path() {
+get_version_minor() {
+    local ver=$1
+    echo ${ver} | cut -d. -f2
+}
+
+get_repo_name_for_branch() {
     local branch=$1
+    local abi=$2
     case ${BRANCH} in
 	releng/*)
 	    ver=$(echo ${BRANCH} | cut -d/ -f2)
-	    echo "release/${ver}"
-	    ;;
-	stable/*)
-	    echo "stable"
-	    ;;
-	main)
-	    echo "current"
+	    minorver=$(get_version_minor ${ver})
+	    echo "base_release_${minorver}"
 	    ;;
 	*)
-	    echo "unsupported branch for alpha.pkgbase.live: ${BRANCH}, assuming current" > /dev/stderr
-	    echo "current"
-	    exit 1
+	    echo "base_latest"
 	    ;;
+    esac
+}
+
+get_mirror_type() {
+    local url=$1; shift
+    case $url in
+	pkg+*)
+	    echo "srv"
+	    ;;
+	*)
+	    echo "none"
+    esac
+}
+
+get_signature_type() {
+    local url=$1; shift
+    case $url in
+	*//pkg.freebsd.org)
+	    echo "fingerprints"
+	    ;;
+	*)
+	    echo "none"
     esac
 }
 
@@ -93,7 +118,7 @@ get_build_version() {
 # Get build date from build version
 get_build_date() {
     local ver=$1; shift
-    case ${VER} in
+    case ${ver} in
 	13.2p1)
 	    echo 202306210000
 	    ;;
@@ -101,10 +126,13 @@ get_build_date() {
 	    echo 202308010000
 	    ;;
 	14.a?.*)
-	    echo ${VER} | sed -E -e 's/14\.a[[:digit:]]\.([[:digit:]]{12}).*/\1/'
+	    echo ${ver} | sed -E -e 's/14\.a[[:digit:]]\.([[:digit:]]{12}).*/\1/'
+	    ;;
+	14.rc?.*)
+	    echo ${ver} | sed -E -e 's/14\.rc[[:digit:]]\.([[:digit:]]{12}).*/\1/'
 	    ;;
 	*.snap*)
-	    echo ${VER} | sed -E -e 's/.*snap([[:digit:]]{12}).*/\1/'
+	    echo ${ver} | sed -E -e 's/.*snap([[:digit:]]{12}).*/\1/'
 	    ;;
 	*)
 	    date +%Y%m%d0000
@@ -119,8 +147,26 @@ get_build_timestamp() {
 install_packages() {
     local workdir=$1; shift
     local rootdir=$1; shift
+    if [ ! -d ${rootdir}/usr/share/keys/pkg/trusted ]; then
+	mkdir -p ${rootdir}/usr/share/keys/pkg/trusted
+    fi
+    cp /usr/share/keys/pkg/trusted/* ${rootdir}/usr/share/keys/pkg/trusted
     env IGNORE_OSVERSION=yes ABI=${abi} ${PKG} --rootdir ${rootdir} --repo-conf-dir ${workdir}/repos \
 	install -yq "$@" || exit $?
+}
+
+make_repo_conf() {
+    local path=$1; shift
+    local url=$1; shift
+
+    cat > ${path} <<EOF
+FreeBSD-base: {
+  url: "${url}/\${ABI}/$(get_repo_name_for_branch ${BRANCH})"
+  mirror_type: "$(get_mirror_type ${url})"
+  signature_type: "$(get_signature_type ${url})"
+  fingerprints: "/usr/share/keys/pkg"
+}
+EOF
 }
 
 make_workdir() {
@@ -128,26 +174,8 @@ make_workdir() {
     local abi=$2
     local workdir=$(mktemp -d -t freebsd-image)
     mkdir ${workdir}/repos
-    cat > ${workdir}/repos/base.conf <<EOF
-# FreeBSD pkgbase repo for building the images
-
-FreeBSD-base: {
-  url: "${REPOURL}/\${ABI}/latest",
-  signature_type: "none",
-  pubkey: "/usr/local/etc/ssl/pkgbase.pub",
-  enabled: yes
-}
-EOF
-    cat > ${workdir}/alpha.pkgbase.live.conf <<EOF
-# FreeBSD pkgbase repo
-
-FreeBSD-base: {
-  url: "https://alpha.pkgbase.live/$(get_apl_path ${BRANCH})/\${ABI}/latest",
-  signature_type: "pubkey",
-  pubkey: "/usr/local/etc/pkg/keys/alpha.pkgbase.live.pub"
-  enabled: no
-}
-EOF
+    make_repo_conf ${workdir}/repos/base.conf ${REPO_INSTALL_URL}
+    make_repo_conf ${workdir}/repos/FreeBSD-base.conf ${REPO_IMAGE_URL}
     # Extract FreeBSD-runtime into the workdir to get the version and let
     # builder scripts copy fragments into an image
     mkdir ${workdir}/runtime
@@ -182,10 +210,7 @@ add_annotation() {
 install_pkgbase_repo() {
     local workdir=$1
     local m=$2
-    cp ${workdir}/alpha.pkgbase.live.conf $m/usr/local/etc/pkg/repos/pkgbase.conf
-    mkdir -p $m/usr/local/etc/pkg/keys || return $?
-#    fetch --output=$m/usr/local/etc/pkg/keys/alpha.pkgbase.live.pub \
-#	https://alpha.pkgbase.live/alpha.pkgbase.live.pub || return $?
+    cp ${workdir}/repos/FreeBSD-base.conf $m/usr/local/etc/pkg/repos/FreeBSD-base.conf
 }
 
 clean_workdir() {
