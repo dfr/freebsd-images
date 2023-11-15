@@ -19,6 +19,7 @@ PUSH=no
 ADD_ANNOTATIONS=no
 BRANCH=
 VER=
+set -x
 
 get_majorver() {
     local ver=$1; shift
