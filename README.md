@@ -50,7 +50,7 @@ The following images are provided:
   - This adds /rescue to freebsd-base to help with debugging.
 - freebsd${ver}-minimal
   - This adds core system utilities and package management to support
-    shall-based workloads.
+    shell-based workloads.
 - freebsd${ver}-small
-  - This adds a wider set of system utilities for broader support of shall-based
+  - This adds a wider set of system utilities for broader support of shell-based
     workloads.
