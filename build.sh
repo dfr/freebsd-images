@@ -46,12 +46,12 @@ done
 shift $((OPTIND-1))
 
 # Packages for these branches are available on pkg.freebsd.org
-builds="main:15 stable/14:14 releng/14.0:14.0"
+builds="main:15 stable/14:14 releng/14.1:14.1"
 
 # FreeBSD-13 builds are supported on my home lab infrastructure - hopefully
 # these will also be added to pkg.freebsd.org soon.
 if [ "${REPO_INSTALL_URL}" = "http://pkgbase.home.rabson.org" ]; then
-   builds="${builds} stable/13:13 releng/13.2:13.2"
+   builds="${builds} stable/13:13 releng/13.4:13.4"
 fi
 
 if [ $# -gt 0 ]; then
