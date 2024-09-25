@@ -35,6 +35,7 @@ EOF
 	  )
     add_annotation $c "org.opencontainers.image.title=Minimal image for shell-based workloads"
     add_annotation $c "org.opencontainers.image.description=${desc}"
+    buildah config --cmd /bin/sh $c
 }
 
 parse_args "$@"
