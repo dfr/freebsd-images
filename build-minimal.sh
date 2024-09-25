@@ -49,7 +49,10 @@ if [ ${BUILD} = yes ]; then
 		FreeBSD-runtime \
 		${caroot} \
 		FreeBSD-kerberos-lib \
+		FreeBSD-libarchive \
 		FreeBSD-libexecinfo \
+		FreeBSD-libucl \
+		FreeBSD-fetch \
 		FreeBSD-rc \
 		FreeBSD-pkg-bootstrap \
 		FreeBSD-mtree
