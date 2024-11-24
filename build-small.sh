@@ -20,7 +20,7 @@ parse_args "$@"
 
 if [ ${BUILD} = yes ]; then
     build_image minimal small "" fixup \
-		FreeBSD-utilities
+		FreeBSD-utilities FreeBSD-libbsm
 fi
 if [ ${PUSH} = yes ]; then
     push_image small
